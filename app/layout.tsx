@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "next-themes";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TempMail - Disposable Email Service",
+  title: "Veya — Disposable Email",
   description: "Layanan email sementara untuk testing dan privasi",
 };
 
@@ -17,15 +13,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+      <body className="font-sans bg-[var(--color-bg)] text-[var(--color-text)]">
+        {children}
       </body>
     </html>
   );

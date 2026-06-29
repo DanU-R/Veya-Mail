@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { QrCode as QrCodeIcon, LogOut, RefreshCw } from "lucide-react";
 import { createAddress, extendAddress, type Message } from "@/lib/api";
 import { generateRandomUsername } from "@/lib/utils";
-import { AddressBar } from "../components/AddressBar";
+import { AddressCard } from "../components/AddressCard";
 import { MessageList } from "../components/MessageList";
 import { MessageViewer } from "../components/MessageViewer";
 import { QRCodeModal } from "../components/QRCodeModal";
@@ -15,142 +14,103 @@ export default function InboxPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [addressId, setAddressId] = useState<string | null>(null);
-  const [address, setAddress] = useState<string>("");
-  const [expiresAt, setExpiresAt] = useState<number>(0);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [address, setAddress] = useState("");
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [selected, setSelected] = useState<Message | null>(null);
+  const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check token in localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem("tempmail_token");
-    if (!storedToken) {
-      router.push("/");
-      return;
-    }
-    setToken(storedToken);
-    generateNewAddress(storedToken);
+    const t = localStorage.getItem("tempmail_token");
+    if (!t) { router.push("/"); return; }
+    setToken(t);
+    generate(t);
   }, [router]);
 
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem("tempmail_token");
-    router.push("/");
-  };
-
-  // Generate new address
-  const generateNewAddress = async (token: string) => {
+  const generate = async (t: string) => {
     try {
       setLoading(true);
-      const username = generateRandomUsername();
-      const data = await createAddress(token, username, 10); // 10 menit default
-      setAddressId(data.id);
-      setAddress(data.address);
-      setExpiresAt(data.expires_at);
-    } catch (error) {
-      console.error("Failed to create address:", error);
+      const d = await createAddress(t, generateRandomUsername(), 10);
+      setAddressId(d.id);
+      setAddress(d.address);
+      setExpiresAt(d.expires_at);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Extend address
   const handleExtend = async () => {
     if (!token || !addressId) return;
     try {
-      const data = await extendAddress(token, addressId, 10); // Tambah 10 menit
-      setExpiresAt(data.expires_at);
-    } catch (error) {
-      console.error("Failed to extend address:", error);
+      const d = await extendAddress(token, addressId, 10);
+      setExpiresAt(d.expires_at);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  // Refresh messages
-  const handleRefresh = () => {
-    // MessageList udah auto-refresh
-  };
-
-  // Handle select message
-  const handleSelectMessage = (message: Message) => {
-    setSelectedMessage(message);
-  };
-
-  // Handle delete message
-  const handleDeleteMessage = () => {
-    setSelectedMessage(null);
+  const handleLogout = () => {
+    localStorage.removeItem("tempmail_token");
+    router.push("/");
   };
 
   if (!token || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+        <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg)]">
       {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-foreground">TempMail</h1>
-        </div>
+      <header className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+        <span className="font-display text-sm tracking-widest uppercase">Veya</span>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowQRCode(true)}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
-            title="Show QR Code"
+            onClick={() => setShowQR(true)}
+            className="btn btn-ghost text-xs"
           >
-            <QrCodeIcon className="h-5 w-5 text-muted-foreground" />
+            ◈ QR
           </button>
           <ThemeToggle />
-          <button
-            onClick={handleLogout}
-            className="btn btn-secondary gap-1.5"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
+          <button onClick={handleLogout} className="btn btn-ghost text-xs">
+            ✕ Exit
           </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col p-4 gap-4 max-w-4xl w-full mx-auto">
-        {/* Address Bar */}
-        <AddressBar
+      {/* Main */}
+      <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
+        <AddressCard
           address={address}
           addressId={addressId || ""}
           expiresAt={expiresAt}
-          onGenerateNew={() => generateNewAddress(token)}
+          onGenerateNew={() => token && generate(token)}
           onExtend={handleExtend}
         />
 
-        {/* Message Content */}
-        <div className="flex-1 flex gap-4">
-          {selectedMessage ? (
-            <MessageViewer
-              token={token}
-              messageId={selectedMessage.id}
-              onBack={() => setSelectedMessage(null)}
-              onDelete={handleDeleteMessage}
-            />
-          ) : (
-            <MessageList
-              token={token}
-              addressId={addressId || ""}
-              onSelectMessage={handleSelectMessage}
-              onRefresh={handleRefresh}
-            />
-          )}
-        </div>
+        {selected ? (
+          <MessageViewer
+            token={token}
+            messageId={selected.id}
+            onBack={() => setSelected(null)}
+            onDelete={() => setSelected(null)}
+          />
+        ) : (
+          <MessageList
+            token={token}
+            addressId={addressId || ""}
+            onSelectMessage={setSelected}
+            onRefresh={() => {}}
+          />
+        )}
       </main>
 
-      {/* QR Code Modal */}
-      <QRCodeModal
-        isOpen={showQRCode}
-        onClose={() => setShowQRCode(false)}
-        email={address}
-      />
+      <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} email={address} />
     </div>
   );
 }

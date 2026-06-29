@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mail, Trash2 } from "lucide-react";
 import { listMessages, deleteMessage, type Message } from "@/lib/api";
 import { formatDate, truncate } from "@/lib/utils";
 
@@ -12,151 +11,109 @@ interface MessageListProps {
   onRefresh: () => void;
 }
 
-export function MessageList({
-  token,
-  addressId,
-  onSelectMessage,
-  onRefresh,
-}: MessageListProps) {
+export function MessageList({ token, addressId, onSelectMessage, onRefresh }: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchMessages = async () => {
+  const fetch = async () => {
     try {
       setLoading(true);
       const data = await listMessages(token, addressId);
       setMessages(data.messages);
-    } catch (error) {
-      console.error("Failed to fetch messages:", error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (messageId: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      setDeletingId(messageId);
-      await deleteMessage(token, messageId);
-      setMessages(messages.filter((m) => m.id !== messageId));
-    } catch (error) {
-      console.error("Failed to delete message:", error);
+      setDeletingId(id);
+      await deleteMessage(token, id);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    } catch (e) {
+      console.error(e);
     } finally {
       setDeletingId(null);
     }
   };
 
-  // Auto-refresh every 10 seconds
   useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 10000);
+    fetch();
+    const interval = setInterval(fetch, 10000);
     return () => clearInterval(interval);
   }, [token, addressId]);
 
-  // Skeleton Loading
-  const SkeletonItem = () => (
-    <div className="p-4 border-b border-border">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="skeleton h-4 w-32 rounded"></div>
-            <div className="skeleton h-3 w-20 rounded"></div>
-          </div>
-          <div className="skeleton h-4 w-full rounded mb-1"></div>
-          <div className="skeleton h-3 w-48 rounded"></div>
-        </div>
-      </div>
-    </div>
-  );
-
+  // Skeleton
   if (loading && messages.length === 0) {
     return (
       <div className="card">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Inbox</h3>
-            <button
-              onClick={onRefresh}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Refresh
-            </button>
-          </div>
+        <div className="p-4 flex justify-between items-center dashed-divider">
+          <span className="font-display text-xs tracking-widest uppercase text-[var(--color-text-muted)]">Inbox</span>
+          <button onClick={onRefresh} className="btn btn-ghost text-xs">Refresh</button>
         </div>
-        <SkeletonItem />
-        <SkeletonItem />
-        <SkeletonItem />
+        {[1,2,3].map((i) => (
+          <div key={i} className="p-4 message-item">
+            <div className="skeleton h-4 w-32 mb-2 rounded" />
+            <div className="skeleton h-3 w-48 mb-1 rounded" />
+            <div className="skeleton h-3 w-64 rounded" />
+          </div>
+        ))}
       </div>
     );
   }
 
-  if (messages.length === 0 && !loading) {
+  // Empty
+  if (!loading && messages.length === 0) {
     return (
       <div className="card flex flex-col items-center justify-center py-12">
-        <Mail className="h-12 w-12 mb-4 text-muted-foreground" />
-        <p className="text-muted-foreground text-sm">No messages yet</p>
-        <p className="text-muted-foreground text-xs mt-1">
-          Send an email to this address
-        </p>
+        <span className="font-display text-3xl text-[var(--color-text-muted)] mb-2">✉</span>
+        <p className="text-sm text-[var(--color-text-muted)]">No messages yet</p>
+        <p className="text-xs text-[var(--color-text-muted)] mt-1">Send an email to this address</p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">Inbox</h3>
-          <button
-            onClick={onRefresh}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Refresh
-          </button>
-        </div>
+      <div className="p-4 flex justify-between items-center dashed-divider">
+        <span className="font-display text-xs tracking-widest uppercase text-[var(--color-text-muted)]">Inbox</span>
+        <button onClick={onRefresh} className="btn btn-ghost text-xs">Refresh</button>
       </div>
-      
-      <div className="divide-y divide-border">
-        {messages.map((message) => (
+
+      <div>
+        {messages.map((msg) => (
           <div
-            key={message.id}
-            onClick={() => onSelectMessage(message)}
+            key={msg.id}
+            onClick={() => onSelectMessage(msg)}
             className="p-4 cursor-pointer message-item"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium truncate">
-                    {truncate(message.from_address, 30)}
-                  </span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDate(message.received_at)}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-sm font-medium truncate">{truncate(msg.from_address, 30)}</span>
+                  <span className="text-[11px] text-[var(--color-text-muted)] whitespace-nowrap">
+                    {formatDate(msg.received_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-foreground truncate">
-                    {truncate(message.subject || "(No Subject)", 40)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 truncate">
-                  {truncate(message.snippet || "", 60)}
+                <p className="text-sm text-[var(--color-text)] truncate">
+                  {msg.subject || "(No Subject)"}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
+                  {truncate(msg.snippet || "", 80)}
                 </p>
               </div>
-              
-              <div className="flex gap-1">
-                <button
-                  onClick={(e) => handleDelete(message.id, e)}
-                  disabled={deletingId === message.id}
-                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                >
-                  {deletingId === message.id ? (
-                    <span className="text-xs">...</span>
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
+
+              <button
+                onClick={(e) => handleDelete(msg.id, e)}
+                disabled={deletingId === msg.id}
+                className="btn btn-ghost text-xs px-2 py-1 shrink-0"
+              >
+                {deletingId === msg.id ? "…" : "✕"}
+              </button>
             </div>
           </div>
         ))}

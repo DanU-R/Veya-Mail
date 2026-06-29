@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ArrowLeft, Trash2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { getMessage, type MessageDetail } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 
@@ -12,143 +11,95 @@ interface MessageViewerProps {
   onDelete: () => void;
 }
 
-export function MessageViewer({
-  token,
-  messageId,
-  onBack,
-  onDelete,
-}: MessageViewerProps) {
+export function MessageViewer({ token, messageId, onBack, onDelete }: MessageViewerProps) {
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showHtml, setShowHtml] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const fetchMessage = async () => {
+    (async () => {
       try {
         setLoading(true);
         const data = await getMessage(token, messageId);
         setMessage(data);
-      } catch (error) {
-        console.error("Failed to fetch message:", error);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
-    };
-    fetchMessage();
+    })();
   }, [token, messageId]);
+
+  // Render HTML into sandboxed iframe
+  useEffect(() => {
+    if (!message?.html_body || !iframeRef.current) return;
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+    doc.open();
+    doc.write(message.html_body);
+    doc.close();
+  }, [message?.html_body, message?.id]);
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-sm">Sanitizing content...</span>
-          </div>
-        </div>
-        <div className="flex-1 p-4">
-          <div className="skeleton h-6 w-48 rounded mb-4"></div>
-          <div className="skeleton h-4 w-full rounded mb-2"></div>
-          <div className="skeleton h-4 w-full rounded mb-2"></div>
-          <div className="skeleton h-4 w-3/4 rounded"></div>
-        </div>
+      <div className="card p-6">
+        <div className="skeleton h-5 w-48 mb-4 rounded" />
+        <div className="skeleton h-4 w-full mb-2 rounded" />
+        <div className="skeleton h-4 w-3/4 rounded" />
       </div>
     );
   }
 
   if (!message) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <p className="text-muted-foreground">Message not found</p>
+      <div className="card p-6 text-center text-sm text-[var(--color-text-muted)]">
+        Message not found
       </div>
     );
   }
 
-  // Sanitize HTML untuk iframe (lebih aman)
-  const sanitizeHtml = (html: string | null) => {
-    if (!html) return "";
-    // Hapus script, iframe, style, dll.
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-      .replace(/on\w+="[^"]*"/g, "") // Hapus event handlers
-      .replace(/javascript:/gi, "");
-  };
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="card flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back</span>
-          </button>
-          <h2 className="text-lg font-semibold truncate">
-            {message.subject || "(No Subject)"}
-          </h2>
+      <div className="p-4 dashed-divider flex items-center justify-between">
+        <button onClick={onBack} className="btn btn-ghost text-xs">
+          ← Back
+        </button>
+        <button onClick={onDelete} className="btn btn-ghost text-xs text-[var(--color-accent)]">
+          ✕ Delete
+        </button>
+      </div>
+
+      {/* Meta info */}
+      <div className="p-4 dashed-divider text-xs text-[var(--color-text-muted)] space-y-1">
+        <div className="flex gap-2">
+          <span className="w-10 shrink-0">From:</span>
+          <span className="font-medium text-[var(--color-text)]">{message.from_address}</span>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowHtml(!showHtml)}
-            className="btn btn-secondary gap-1.5"
-          >
-            {showHtml ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            <span className="hidden sm:inline">{showHtml ? "HTML" : "Text"}</span>
-          </button>
-          <button
-            onClick={onDelete}
-            className="btn btn-danger gap-1.5"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Delete</span>
-          </button>
+          <span className="w-10 shrink-0">Subject:</span>
+          <span className="font-medium text-[var(--color-text)]">{message.subject || "(No Subject)"}</span>
+        </div>
+        <div className="flex gap-2">
+          <span className="w-10 shrink-0">Date:</span>
+          <span>{formatDate(message.received_at)}</span>
         </div>
       </div>
 
-      {/* Message Info */}
-      <div className="p-4 border-b border-border">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">From:</span>
-            <span className="font-medium truncate">{message.from_address}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">To:</span>
-            <span className="font-medium truncate">testveya@aivenue.web.id</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Date:</span>
-            <span className="font-medium">{formatDate(message.received_at)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Message Body */}
-      <div className="flex-1 overflow-auto p-4">
-        {showHtml && message.html_body ? (
-          <div className="prose dark:prose-invert max-w-none bg-secondary p-4 rounded-lg">
-            <div
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.html_body) }}
-            />
-          </div>
+      {/* Body — sandboxed iframe */}
+      <div className="flex-1 min-h-0">
+        {message.html_body ? (
+          <iframe
+            ref={iframeRef}
+            sandbox=""
+            className="w-full h-full border-0 bg-white"
+            title="Email content"
+          />
         ) : (
-          <pre className="whitespace-pre-wrap text-sm bg-secondary p-4 rounded-lg overflow-auto">
-            {message.text_body || "No text content"}
+          <pre className="p-4 text-sm whitespace-pre-wrap font-sans text-[var(--color-text)]">
+            {message.text_body || "(No content)"}
           </pre>
         )}
-      </div>
-
-      {/* Security Notice */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-green-500" />
-          <span>Content sanitized for security</span>
-        </div>
       </div>
     </div>
   );

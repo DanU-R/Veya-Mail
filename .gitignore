@@ -42,3 +42,6 @@ coverage/
 
 # Local env files
 .env*.local
+
+.vercel
+.env*

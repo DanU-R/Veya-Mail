@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { login } from "@/lib/api";
 import { ThemeToggle } from "./components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +16,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       const { token } = await login(password);
       localStorage.setItem("tempmail_token", token);
@@ -30,93 +28,61 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg)]">
       <header className="flex justify-end p-4">
         <ThemeToggle />
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Logo & Title */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
-                <Mail className="h-8 w-8 text-primary-foreground" />
-              </div>
+        <div className="w-full max-w-sm">
+          <div className="card p-8 animate-stamp-in">
+            <div className="text-center mb-6">
+              <span className="font-display text-2xl tracking-widest uppercase block">
+                Veya
+              </span>
+              <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                Disposable email
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">TempMail</h1>
-            <p className="text-muted-foreground mt-2">
-              Disposable email service for testing and privacy
-            </p>
-          </div>
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Lock className="h-4 w-4" />
-                Password
-              </label>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPw ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Password"
                   className="input"
                   required
                   disabled={loading}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost text-sm px-2 py-1"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showPw ? "🙈" : "👁"}
                 </button>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-lg border border-destructive/20">
-                {error}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !password}
-              className="btn btn-primary w-full gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Logging in...</span>
-                </>
-              ) : (
-                "Login"
+              {error && (
+                <p className="text-xs text-[var(--color-accent)]">{error}</p>
               )}
-            </button>
-          </form>
 
-          {/* Info */}
-          <div className="mt-6 text-center text-xs text-muted-foreground">
-            <p>Use the password you set in Cloudflare Worker</p>
+              <button
+                type="submit"
+                disabled={loading || !password}
+                className="btn btn-primary w-full"
+              >
+                {loading ? "…" : "Enter"}
+              </button>
+            </form>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="text-center p-4 text-sm text-muted-foreground">
-        <p>TempMail Service - Private Use Only</p>
+      <footer className="text-center p-4 text-[11px] text-[var(--color-text-muted)]">
+        Veya — disposable email service
       </footer>
     </div>
   );

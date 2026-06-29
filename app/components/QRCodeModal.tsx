@@ -1,6 +1,5 @@
 "use client";
 
-import { X, QrCode } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
 interface QRCodeModalProps {
@@ -13,44 +12,28 @@ export function QRCodeModal({ isOpen, onClose, email }: QRCodeModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="card max-w-sm w-full p-6 relative">
-        {/* Close Button */}
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="card p-6 max-w-sm w-full text-center relative">
+        {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors"
+          className="btn btn-ghost absolute top-3 right-3 w-8 h-8 p-0 text-sm"
           aria-label="Close"
         >
-          <X className="h-5 w-5 text-muted-foreground" />
+          ✕
         </button>
 
-        {/* Content */}
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-              <QrCode className="h-6 w-6 text-primary" />
-            </div>
-          </div>
-          
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            QR Code
-          </h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            Scan to copy email address to your device
-          </p>
+        <p className="font-display text-xs tracking-widest uppercase text-[var(--color-text-muted)] mb-4">
+          Scan to copy
+        </p>
 
-          {/* QR Code */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl mb-6">
-            <QRCodeCanvas value={email} size={192} />
-          </div>
-
-          {/* Email Address */}
-          <div className="bg-secondary rounded-lg px-4 py-3">
-            <code className="text-sm font-mono text-foreground break-all">
-              {email}
-            </code>
-          </div>
+        <div className="bg-white p-3 inline-block mb-4">
+          <QRCodeCanvas value={email} size={160} />
         </div>
+
+        <code className="font-mono text-sm block bg-[var(--color-accent-soft)] px-3 py-2">
+          {email}
+        </code>
       </div>
     </div>
   );
