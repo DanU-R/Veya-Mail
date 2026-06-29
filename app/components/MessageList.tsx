@@ -4,23 +4,21 @@ import { useEffect, useState } from "react";
 import { listMessages, deleteMessage, type Message } from "@/lib/api";
 import { formatDate, truncate } from "@/lib/utils";
 
-interface MessageListProps {
+interface Props {
   token: string;
   addressId: string;
-  onSelectMessage: (message: Message) => void;
-  onRefresh: () => void;
+  onSelectMessage: (m: Message) => void;
 }
 
-export function MessageList({ token, addressId, onSelectMessage, onRefresh }: MessageListProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+export function MessageList({ token, addressId, onSelectMessage }: Props) {
+  const [msgs, setMsgs] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const fetch = async () => {
     try {
-      setLoading(true);
       const data = await listMessages(token, addressId);
-      setMessages(data.messages);
+      setMsgs(data.messages);
     } catch (e) {
       console.error(e);
     } finally {
@@ -31,88 +29,90 @@ export function MessageList({ token, addressId, onSelectMessage, onRefresh }: Me
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      setDeletingId(id);
+      setDeleting(id);
       await deleteMessage(token, id);
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+      setMsgs((prev) => prev.filter((m) => m.id !== id));
     } catch (e) {
       console.error(e);
     } finally {
-      setDeletingId(null);
+      setDeleting(null);
     }
   };
 
   useEffect(() => {
     fetch();
-    const interval = setInterval(fetch, 10000);
-    return () => clearInterval(interval);
+    const id = setInterval(fetch, 8000);
+    return () => clearInterval(id);
   }, [token, addressId]);
 
-  // Skeleton
-  if (loading && messages.length === 0) {
+  if (loading && msgs.length === 0) {
     return (
-      <div className="card">
-        <div className="p-4 flex justify-between items-center dashed-divider">
-          <span className="font-display text-xs tracking-widest uppercase text-[var(--color-text-muted)]">Inbox</span>
-          <button onClick={onRefresh} className="btn btn-ghost text-xs">Refresh</button>
+      <div className="card p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Inbox</span>
         </div>
-        {[1,2,3].map((i) => (
-          <div key={i} className="p-4 message-item">
-            <div className="skeleton h-4 w-32 mb-2 rounded" />
-            <div className="skeleton h-3 w-48 mb-1 rounded" />
-            <div className="skeleton h-3 w-64 rounded" />
+        {[1,2,3].map(i => (
+          <div key={i} className="flex gap-3">
+            <div className="skeleton h-4 w-1/4 rounded" />
+            <div className="skeleton h-4 w-2/4 rounded" />
+            <div className="skeleton h-4 w-1/5 rounded" />
           </div>
         ))}
       </div>
     );
   }
 
-  // Empty
-  if (!loading && messages.length === 0) {
+  if (!loading && msgs.length === 0) {
     return (
-      <div className="card flex flex-col items-center justify-center py-12">
-        <span className="font-display text-3xl text-[var(--color-text-muted)] mb-2">✉</span>
-        <p className="text-sm text-[var(--color-text-muted)]">No messages yet</p>
-        <p className="text-xs text-[var(--color-text-muted)] mt-1">Send an email to this address</p>
+      <div className="card p-8 text-center">
+        <p className="text-2xl mb-2">📬</p>
+        <p className="text-sm text-[var(--text-muted)]">No messages yet</p>
+        <p className="text-xs text-[var(--text-muted)] mt-1">
+          Send an email to this address and it will appear here
+        </p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <div className="p-4 flex justify-between items-center dashed-divider">
-        <span className="font-display text-xs tracking-widest uppercase text-[var(--color-text-muted)]">Inbox</span>
-        <button onClick={onRefresh} className="btn btn-ghost text-xs">Refresh</button>
+      <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
+        <span className="text-sm font-medium">
+          Inbox <span className="text-[var(--text-muted)] font-normal">({msgs.length})</span>
+        </span>
+        <button onClick={fetch} className="btn btn-ghost text-xs">Refresh</button>
       </div>
 
-      <div>
-        {messages.map((msg) => (
+      <div className="divide-y divide-[var(--border)]">
+        {msgs.map((msg) => (
           <div
             key={msg.id}
             onClick={() => onSelectMessage(msg)}
-            className="p-4 cursor-pointer message-item"
+            className="px-5 py-3.5 cursor-pointer message-item"
           >
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm font-medium truncate">{truncate(msg.from_address, 30)}</span>
-                  <span className="text-[11px] text-[var(--color-text-muted)] whitespace-nowrap">
+                  <span className="text-sm font-medium truncate">
+                    {msg.from_address}
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap shrink-0">
                     {formatDate(msg.received_at)}
                   </span>
                 </div>
-                <p className="text-sm text-[var(--color-text)] truncate">
-                  {msg.subject || "(No Subject)"}
+                <p className="text-sm text-[var(--text)] truncate">
+                  {msg.subject || "(No subject)"}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
-                  {truncate(msg.snippet || "", 80)}
+                <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">
+                  {truncate(msg.snippet || "", 100)}
                 </p>
               </div>
-
               <button
                 onClick={(e) => handleDelete(msg.id, e)}
-                disabled={deletingId === msg.id}
-                className="btn btn-ghost text-xs px-2 py-1 shrink-0"
+                disabled={deleting === msg.id}
+                className="btn btn-ghost text-xs px-2 py-1 shrink-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
               >
-                {deletingId === msg.id ? "…" : "✕"}
+                ✕
               </button>
             </div>
           </div>

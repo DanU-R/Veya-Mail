@@ -4,15 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import { getMessage, type MessageDetail } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 
-interface MessageViewerProps {
+interface Props {
   token: string;
   messageId: string;
   onBack: () => void;
   onDelete: () => void;
 }
 
-export function MessageViewer({ token, messageId, onBack, onDelete }: MessageViewerProps) {
-  const [message, setMessage] = useState<MessageDetail | null>(null);
+export function MessageViewer({ token, messageId, onBack, onDelete }: Props) {
+  const [msg, setMsg] = useState<MessageDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -21,7 +21,7 @@ export function MessageViewer({ token, messageId, onBack, onDelete }: MessageVie
       try {
         setLoading(true);
         const data = await getMessage(token, messageId);
-        setMessage(data);
+        setMsg(data);
       } catch (e) {
         console.error(e);
       } finally {
@@ -30,74 +30,69 @@ export function MessageViewer({ token, messageId, onBack, onDelete }: MessageVie
     })();
   }, [token, messageId]);
 
-  // Render HTML into sandboxed iframe
   useEffect(() => {
-    if (!message?.html_body || !iframeRef.current) return;
+    if (!msg?.html_body || !iframeRef.current) return;
     const doc = iframeRef.current.contentDocument;
     if (!doc) return;
     doc.open();
-    doc.write(message.html_body);
+    doc.write(msg.html_body);
     doc.close();
-  }, [message?.html_body, message?.id]);
+  }, [msg?.html_body, msg?.id]);
 
   if (loading) {
     return (
-      <div className="card p-6">
-        <div className="skeleton h-5 w-48 mb-4 rounded" />
-        <div className="skeleton h-4 w-full mb-2 rounded" />
+      <div className="card p-6 space-y-3">
+        <div className="skeleton h-5 w-48 rounded" />
+        <div className="skeleton h-4 w-full rounded" />
         <div className="skeleton h-4 w-3/4 rounded" />
       </div>
     );
   }
 
-  if (!message) {
+  if (!msg) {
     return (
-      <div className="card p-6 text-center text-sm text-[var(--color-text-muted)]">
-        Message not found
+      <div className="card p-8 text-center text-sm text-[var(--text-muted)]">
+        Message not found or has been deleted
       </div>
     );
   }
 
   return (
-    <div className="card flex flex-col h-full">
+    <div className="card flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 dashed-divider flex items-center justify-between">
-        <button onClick={onBack} className="btn btn-ghost text-xs">
-          ← Back
-        </button>
-        <button onClick={onDelete} className="btn btn-ghost text-xs text-[var(--color-accent)]">
-          ✕ Delete
-        </button>
+      <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between">
+        <button onClick={onBack} className="btn btn-ghost text-xs">← Back</button>
+        <button onClick={onDelete} className="btn btn-ghost text-xs text-[var(--danger)]">✕ Delete</button>
       </div>
 
-      {/* Meta info */}
-      <div className="p-4 dashed-divider text-xs text-[var(--color-text-muted)] space-y-1">
-        <div className="flex gap-2">
-          <span className="w-10 shrink-0">From:</span>
-          <span className="font-medium text-[var(--color-text)]">{message.from_address}</span>
+      {/* Meta */}
+      <div className="px-5 py-3 border-b border-[var(--border)] space-y-1 text-sm">
+        <div className="flex gap-2 text-xs text-[var(--text-muted)]">
+          <span className="w-12 shrink-0">From:</span>
+          <span className="text-[var(--text)] font-medium truncate">{msg.from_address}</span>
         </div>
-        <div className="flex gap-2">
-          <span className="w-10 shrink-0">Subject:</span>
-          <span className="font-medium text-[var(--color-text)]">{message.subject || "(No Subject)"}</span>
+        <div className="flex gap-2 text-xs text-[var(--text-muted)]">
+          <span className="w-12 shrink-0">Subject:</span>
+          <span className="text-[var(--text)] truncate">{msg.subject || "(No subject)"}</span>
         </div>
-        <div className="flex gap-2">
-          <span className="w-10 shrink-0">Date:</span>
-          <span>{formatDate(message.received_at)}</span>
+        <div className="flex gap-2 text-xs text-[var(--text-muted)]">
+          <span className="w-12 shrink-0">Date:</span>
+          <span>{formatDate(msg.received_at)}</span>
         </div>
       </div>
 
-      {/* Body — sandboxed iframe */}
+      {/* Body */}
       <div className="flex-1 min-h-0">
-        {message.html_body ? (
+        {msg.html_body ? (
           <iframe
             ref={iframeRef}
             sandbox=""
             className="w-full h-full border-0 bg-white"
-            title="Email content"
+            title="Email"
           />
         ) : (
-          <pre className="p-4 text-sm whitespace-pre-wrap font-sans text-[var(--color-text)]">
-            {message.text_body || "(No content)"}
+          <pre className="p-5 text-sm whitespace-pre-wrap font-sans text-[var(--text)]">
+            {msg.text_body || "(No content)"}
           </pre>
         )}
       </div>
