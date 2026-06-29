@@ -1,89 +1,212 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { createAddress, extendAddress, login, type Message } from "@/lib/api";
+import { generateRandomUsername } from "@/lib/utils";
+import { AddressCard } from "./components/AddressCard";
+import { MessageList } from "./components/MessageList";
+import { MessageViewer } from "./components/MessageViewer";
+import { QRCodeModal } from "./components/QRCodeModal";
 import { ThemeToggle } from "./components/ThemeToggle";
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function HomePage() {
+  const [token, setToken] = useState<string | null>(null);
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [address, setAddress] = useState("");
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [selected, setSelected] = useState<Message | null>(null);
+  const [showQR, setShowQR] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  // On mount: check for saved token
+  useEffect(() => {
+    const saved = localStorage.getItem("tempmail_token");
+    if (saved) {
+      setToken(saved);
+      generate(saved);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const generate = async (t: string) => {
     try {
-      const { token } = await login(password);
-      localStorage.setItem("tempmail_token", token);
-      router.push("/inbox");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid password");
+      setLoading(true);
+      const d = await createAddress(t, generateRandomUsername(), 10);
+      setAddressId(d.id);
+      setAddress(d.address);
+      setExpiresAt(d.expires_at);
+    } catch (e) {
+      console.error("Generate failed, token may be expired", e);
+      // Token expired → show login prompt
+      localStorage.removeItem("tempmail_token");
+      setToken(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleExtend = async () => {
+    if (!token || !addressId) return;
+    try {
+      const d = await extendAddress(token, addressId, 10);
+      setExpiresAt(d.expires_at);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      const res = await login(password);
+      localStorage.setItem("tempmail_token", res.token);
+      setToken(res.token);
+      setShowLogin(false);
+      setPassword("");
+      generate(res.token);
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Wrong password");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("tempmail_token");
+    setToken(null);
+    setAddressId(null);
+    setAddress("");
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-bg)]">
-      <header className="flex justify-end p-4">
-        <ThemeToggle />
+      {/* Header */}
+      <header className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+        <span className="font-display text-sm tracking-widest uppercase">Veya</span>
+        <div className="flex items-center gap-2">
+          {addressId && (
+            <button onClick={() => setShowQR(true)} className="btn btn-ghost text-xs">◈ QR</button>
+          )}
+          <ThemeToggle />
+          {token ? (
+            <button onClick={handleLogout} className="btn btn-ghost text-xs">✕ Logout</button>
+          ) : (
+            <button onClick={() => setShowLogin(!showLogin)} className="btn btn-ghost text-xs">
+              🔑 Login
+            </button>
+          )}
+        </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="card p-8 animate-stamp-in">
-            <div className="text-center mb-6">
-              <span className="font-display text-2xl tracking-widest uppercase block">
-                Veya
-              </span>
-              <p className="text-xs text-[var(--color-text-muted)] mt-2">
-                Disposable email
-              </p>
-            </div>
+      {/* Login dropdown (kecil, di pojok) */}
+      {showLogin && !token && (
+        <div className="absolute top-16 right-4 z-50 card p-4 w-64 shadow-lg">
+          <form onSubmit={handleLogin} className="space-y-3">
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Login to save your addresses
+            </p>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="input text-sm"
+              autoFocus
+            />
+            {loginError && (
+              <p className="text-xs text-[var(--color-accent)]">{loginError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loginLoading || !password}
+              className="btn btn-primary w-full text-xs"
+            >
+              {loginLoading ? "…" : "Enter"}
+            </button>
+          </form>
+        </div>
+      )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="relative">
+      {/* Main */}
+      <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
+        {loading && !addressId && (
+          <div className="text-center py-12 text-sm text-[var(--color-text-muted)]">Loading…</div>
+        )}
+
+        {!token && !loading && (
+          <div className="card p-12 text-center animate-stamp-in">
+            <span className="font-display text-xl tracking-widest uppercase block mb-2">Veya</span>
+            <p className="text-sm text-[var(--color-text-muted)] mb-6">
+              Disposable email — no signup needed
+            </p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-6">
+              Enter the shared password to generate an address
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); setShowLogin(true); }} className="max-w-xs mx-auto">
+              <div className="flex gap-2">
                 <input
-                  type={showPw ? "text" : "password"}
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="input"
-                  required
-                  disabled={loading}
+                  className="input text-sm flex-1"
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowPw(!showPw)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost text-sm px-2 py-1"
+                  type="submit"
+                  disabled={!password}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleLogin(e as any);
+                  }}
+                  className="btn btn-primary text-xs"
                 >
-                  {showPw ? "🙈" : "👁"}
+                  Go
                 </button>
               </div>
-
-              {error && (
-                <p className="text-xs text-[var(--color-accent)]">{error}</p>
+              {loginError && (
+                <p className="text-xs text-[var(--color-accent)] mt-2">{loginError}</p>
               )}
-
-              <button
-                type="submit"
-                disabled={loading || !password}
-                className="btn btn-primary w-full"
-              >
-                {loading ? "…" : "Enter"}
-              </button>
             </form>
           </div>
-        </div>
+        )}
+
+        {token && addressId && (
+          <>
+            <AddressCard
+              address={address}
+              addressId={addressId}
+              expiresAt={expiresAt}
+              onGenerateNew={() => generate(token)}
+              onExtend={handleExtend}
+            />
+
+            {selected ? (
+              <MessageViewer
+                token={token}
+                messageId={selected.id}
+                onBack={() => setSelected(null)}
+                onDelete={() => setSelected(null)}
+              />
+            ) : (
+              <MessageList
+                token={token}
+                addressId={addressId}
+                onSelectMessage={setSelected}
+                onRefresh={() => {}}
+              />
+            )}
+          </>
+        )}
       </main>
 
-      <footer className="text-center p-4 text-[11px] text-[var(--color-text-muted)]">
-        Veya — disposable email service
-      </footer>
+      <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} email={address} />
     </div>
   );
 }
