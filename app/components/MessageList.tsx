@@ -26,6 +26,13 @@ export function MessageList({ token, addressId, onSelectMessage }: Props) {
     }
   };
 
+  // Auto-refresh every 6 seconds
+  useEffect(() => {
+    fetch();
+    const interval = setInterval(fetch, 6000);
+    return () => clearInterval(interval);
+  }, [token, addressId]);
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -39,10 +46,9 @@ export function MessageList({ token, addressId, onSelectMessage }: Props) {
     }
   };
 
+  // Cleanup old interval — keep only one
   useEffect(() => {
     fetch();
-    const id = setInterval(fetch, 8000);
-    return () => clearInterval(id);
   }, [token, addressId]);
 
   if (loading && msgs.length === 0) {
