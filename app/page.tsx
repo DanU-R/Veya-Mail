@@ -9,6 +9,8 @@ import { MessageViewer } from "./components/MessageViewer";
 import { QRCodeModal } from "./components/QRCodeModal";
 import { ThemeToggle } from "./components/ThemeToggle";
 
+const SAVED_PASSWORD = process.env.NEXT_PUBLIC_VEYA_PASSWORD || "Bandulan123@";
+
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -21,11 +23,25 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [autoLoginDone, setAutoLoginDone] = useState(false);
 
+  // Auto-login on first visit
   useEffect(() => {
     const saved = localStorage.getItem("tempmail_token");
-    if (saved) { setToken(saved); generate(saved); }
-    else { setLoading(false); }
+    if (saved) {
+      setToken(saved);
+      generate(saved);
+    } else {
+      // Auto-login with saved password
+      login(SAVED_PASSWORD).then(res => {
+        localStorage.setItem("tempmail_token", res.token);
+        setToken(res.token);
+        generate(res.token);
+      }).catch(() => {
+        setLoading(false);
+      });
+    }
+    setAutoLoginDone(true);
   }, []);
 
   const generate = async (t: string) => {
@@ -35,7 +51,10 @@ export default function Home() {
       setAddressId(d.id);
       setAddress(d.address);
       setExpiresAt(d.expires_at);
-    } catch { localStorage.removeItem("tempmail_token"); setToken(null); }
+    } catch {
+      localStorage.removeItem("tempmail_token");
+      setToken(null);
+    }
     finally { setLoading(false); }
   };
 
@@ -69,17 +88,18 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-[var(--bg)]/80 backdrop-blur-sm border-b border-[var(--border)]">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <span className="font-display text-base tracking-widest uppercase">Veya</span>
-          <div className="flex items-center gap-1">
-            {addressId && (
-              <button onClick={() => setShowQR(true)} className="btn btn-ghost text-xs">◈ QR</button>
+          <div className="flex items-center gap-2">
+            {address && (
+              <>
+                <span className="font-mono text-xs text-[var(--text-muted)] hidden sm:block">{address}</span>
+                <button onClick={() => setShowQR(true)} className="btn-ghost text-xs px-2 py-1">◈ QR</button>
+              </>
             )}
             <ThemeToggle />
             {token ? (
-              <button onClick={handleLogout} className="btn btn-ghost text-xs">✕ Logout</button>
+              <button onClick={handleLogout} className="btn-ghost text-xs px-2 py-1">✕ Logout</button>
             ) : (
-              <button onClick={() => setShowLogin(!showLogin)} className="btn btn-ghost text-xs">
-                🔑 Login
-              </button>
+              <button onClick={() => setShowLogin(!showLogin)} className="btn-ghost text-xs px-2 py-1">🔑 Login</button>
             )}
           </div>
         </div>
@@ -88,7 +108,7 @@ export default function Home() {
         {showLogin && !token && (
           <div className="absolute top-14 right-4 z-50 card p-4 w-64 shadow-lg">
             <form onSubmit={handleLogin} className="space-y-3">
-              <p className="text-xs text-[var(--text-muted)]">Login to save your addresses</p>
+              <p className="text-xs text-[var(--text-muted)]">Save your addresses across sessions</p>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="Password" className="input text-sm" autoFocus />
               {loginError && <p className="text-xs text-red-500">{loginError}</p>}
@@ -103,23 +123,35 @@ export default function Home() {
 
       {/* Main */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-6 space-y-4">
-        {!token && !loading && (
+        {/* Loading */}
+        {loading && (
           <div className="card p-10 text-center">
-            <span className="font-display text-2xl tracking-widest uppercase block mb-2">Veya</span>
-            <p className="text-sm text-[var(--text-muted)] mb-6">Disposable email — no signup needed</p>
-            <form onSubmit={(e) => { e.preventDefault(); setShowLogin(true); }} className="max-w-xs mx-auto">
-              <div className="flex gap-2">
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Password" className="input text-sm flex-1" />
-                <button type="submit" disabled={!password} onClick={e => {
-                  e.preventDefault(); handleLogin(e as any);
-                }} className="btn btn-primary text-xs">Go</button>
-              </div>
-              {loginError && <p className="text-xs text-red-500 mt-2">{loginError}</p>}
-            </form>
+            <div className="skeleton h-6 w-40 mx-auto mb-3"></div>
+            <div className="skeleton h-4 w-60 mx-auto"></div>
           </div>
         )}
 
+        {/* No token — show generate */}
+        {!token && !loading && (
+          <div className="card p-10 text-center">
+            <span className="font-display text-2xl tracking-widest uppercase block mb-2">Veya</span>
+            <p className="text-sm text-[var(--text-muted)] mb-6">Disposable email — one click</p>
+            <button
+              onClick={() => {
+                login(SAVED_PASSWORD).then(res => {
+                  localStorage.setItem("tempmail_token", res.token);
+                  setToken(res.token);
+                  generate(res.token);
+                }).catch(err => setLoginError("Auto-login failed"));
+              }}
+              className="btn btn-primary text-sm px-6 py-2.5"
+            >
+              ✨ Generate Email
+            </button>
+          </div>
+        )}
+
+        {/* Logged in — show address + inbox */}
         {token && addressId && (
           <>
             <AddressCard
@@ -145,6 +177,21 @@ export default function Home() {
             )}
           </>
         )}
+
+        {/* Footer features */}
+        <div className="grid grid-cols-3 gap-3 pt-2">
+          {[
+            { icon: "⚡", title: "Instant", desc: "One click" },
+            { icon: "🔒", title: "Private", desc: "No signup" },
+            { icon: "♻️", title: "Auto-delete", desc: "Self destruct" },
+          ].map((f, i) => (
+            <div key={i} className="card p-4 text-center">
+              <div className="text-xl mb-1">{f.icon}</div>
+              <h4 className="font-display text-xs tracking-wider uppercase">{f.title}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{f.desc}</p>
+            </div>
+          ))}
+        </div>
       </main>
 
       <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} email={address} />

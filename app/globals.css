@@ -15,27 +15,27 @@
    ======================================== */
 
 :root {
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --border: #e2e8f0;
-  --text: #1a202c;
-  --text-muted: #64748b;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --accent-hover: #1d4ed8;
+  --bg: #EAF1EC;
+  --surface: #FFFFFF;
+  --border: #CBDBD0;
+  --text: #142420;
+  --text-muted: #5C7468;
+  --accent: #C8341F;
+  --accent-soft: rgba(200, 52, 31, 0.10);
+  --accent-hover: #A82A18;
   --success: #16a34a;
   --danger: #dc2626;
 }
 
 .dark {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --border: #334155;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --accent: #3b82f6;
-  --accent-soft: rgba(59, 130, 246, 0.12);
-  --accent-hover: #60a5fa;
+  --bg: #0E1B16;
+  --surface: #15261F;
+  --border: #24382F;
+  --text: #EAF1EC;
+  --text-muted: #8FA89B;
+  --accent: #E0432B;
+  --accent-soft: rgba(224, 67, 43, 0.15);
+  --accent-hover: #C8341F;
   --success: #22c55e;
   --danger: #ef4444;
 }
@@ -112,6 +112,83 @@ body {
 .btn-ghost:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* ========================================
+   Ticket Card (perforated edges)
+   ======================================== */
+.ticket {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ticket-edge {
+  height: 14px;
+  background: radial-gradient(circle, var(--bg) 3px, transparent 3px);
+  background-size: 14px 14px;
+  background-position: 0 0;
+}
+
+/* ========================================
+   Stamp (cancellation mark)
+   ======================================== */
+.stamp {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 68px;
+  height: 68px;
+  border: 3px solid var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transform: rotate(-8deg);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.stamp span {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.stamp small {
+  font-size: 7px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.stamp-pulse {
+  animation: stamp-pulse 1s ease-in-out infinite;
+}
+
+/* ========================================
+   Stamp-in animation
+   ======================================== */
+@keyframes stamp-in {
+  0% { transform: scale(1.4) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(0.95) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 0.85; }
+}
+.stamp-animate {
+  animation: stamp-in 0.4s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp-animate { animation: none; opacity: 0.85; }
+  .stamp-pulse { animation: none; }
+}
+
+/* ========================================
+   Dashed divider
+   ======================================== */
+.divide-dashed > * + * {
+  border-top: 1px dashed var(--border);
 }
 
 /* ========================================
