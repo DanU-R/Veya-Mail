@@ -37,11 +37,18 @@ export async function login(password: string): Promise<{ token: string }> {
   return response.json();
 }
 
+// ============ DOMAINS ============
+export async function getDomains(token: string): Promise<{ domains: string[] }> {
+  const response = await fetchWithAuth("/api/domains", { method: "GET" }, token);
+  return response.json();
+}
+
 // ============ ADDRESSES ============
 export async function createAddress(
   token: string,
   username?: string,
-  ttlMinutes?: number
+  ttlMinutes?: number,
+  domain?: string
 ): Promise<{
   id: string;
   address: string;
@@ -52,7 +59,7 @@ export async function createAddress(
     "/api/addresses",
     {
       method: "POST",
-      body: JSON.stringify({ username, ttl_minutes: ttlMinutes }),
+      body: JSON.stringify({ username, ttl_minutes: ttlMinutes, domain }),
     },
     token
   );

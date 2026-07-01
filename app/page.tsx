@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createAddress, extendAddress, login, type Message } from "@/lib/api";
+import { createAddress, extendAddress, login, getDomains, type Message } from "@/lib/api";
 import { generateRandomUsername } from "@/lib/utils";
 import { AddressCard } from "./components/AddressCard";
 import { MessageList } from "./components/MessageList";
@@ -24,6 +24,8 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [autoLoginDone, setAutoLoginDone] = useState(false);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<string>("");
 
   // Auto-login on first visit
   useEffect(() => {
@@ -37,6 +39,7 @@ export default function Home() {
         localStorage.setItem("tempmail_token", res.token);
         setToken(res.token);
         generate(res.token);
+        getDomains(res.token).then(d => { setDomains(d.domains); setSelectedDomain(d.domains[0] || ""); });
       }).catch(() => {
         setLoading(false);
       });
@@ -47,7 +50,7 @@ export default function Home() {
   const generate = async (t: string) => {
     try {
       setLoading(true);
-      const d = await createAddress(t, generateRandomUsername(), 10);
+      const d = await createAddress(t, generateRandomUsername(), 10, selectedDomain);
       setAddressId(d.id);
       setAddress(d.address);
       setExpiresAt(d.expires_at);
@@ -72,6 +75,7 @@ export default function Home() {
       localStorage.setItem("tempmail_token", res.token);
       setToken(res.token); setShowLogin(false); setPassword("");
       generate(res.token);
+      getDomains(res.token).then(d => { setDomains(d.domains); setSelectedDomain(d.domains[0] || ""); });
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : "Wrong password");
     } finally { setLoginLoading(false); }
@@ -142,6 +146,7 @@ export default function Home() {
                   localStorage.setItem("tempmail_token", res.token);
                   setToken(res.token);
                   generate(res.token);
+                  getDomains(res.token).then(d => { setDomains(d.domains); setSelectedDomain(d.domains[0] || ""); });
                 }).catch(err => setLoginError("Auto-login failed"));
               }}
               className="btn btn-primary text-sm px-6 py-2.5"
@@ -154,6 +159,18 @@ export default function Home() {
         {/* Logged in — show address + inbox */}
         {token && addressId && (
           <>
+            {domains.length > 1 && (
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span>Domain:</span>
+                <select
+                  value={selectedDomain}
+                  onChange={e => setSelectedDomain(e.target.value)}
+                  className="input text-xs py-1 px-2 w-auto"
+                >
+                  {domains.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            )}
             <AddressCard
               address={address}
               expiresAt={expiresAt}
