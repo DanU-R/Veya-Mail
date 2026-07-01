@@ -1,48 +1,83 @@
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
-@import "@fontsource/space-grotesk/500.css";
-@import "@fontsource/space-grotesk/600.css";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/500.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ========================================
-   Design System — Veya (TempMail proper)
+   Veya Design System — Slate
    ======================================== */
 
 :root {
-  --bg: #EAF1EC;
-  --surface: #FFFFFF;
-  --border: #CBDBD0;
-  --text: #142420;
-  --text-muted: #5C7468;
-  --accent: #C8341F;
-  --accent-soft: rgba(200, 52, 31, 0.10);
-  --accent-hover: #A82A18;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e5e5e5;
+  --text: #171717;
+  --text-muted: #737373;
+  --accent: #1a1a1a;
+  --accent-soft: rgba(0,0,0,0.06);
   --success: #16a34a;
   --danger: #dc2626;
 }
 
 .dark {
-  --bg: #0E1B16;
-  --surface: #15261F;
-  --border: #24382F;
-  --text: #EAF1EC;
-  --text-muted: #8FA89B;
-  --accent: #E0432B;
-  --accent-soft: rgba(224, 67, 43, 0.15);
-  --accent-hover: #C8341F;
+  --bg: #0f1117;
+  --surface: #181b23;
+  --border: #23262e;
+  --text: #e2e8f0;
+  --text-muted: #475569;
+  --accent: #60a5fa;
+  --accent-soft: rgba(96,165,250,0.08);
   --success: #22c55e;
   --danger: #ef4444;
 }
 
-html {
-  scroll-behavior: smooth;
+/* Animated background */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
 }
+.bg-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(96,165,250,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96,165,250,.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.bg-glow {
+  position: fixed;
+  top: -50vh;
+  left: -20vw;
+  width: 80vw;
+  height: 80vh;
+  background: radial-gradient(circle, rgba(96,165,250,.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 20s ease-in-out infinite alternate;
+}
+.bg-glow-2 {
+  position: fixed;
+  bottom: -40vh;
+  right: -10vw;
+  width: 60vw;
+  height: 60vh;
+  background: radial-gradient(circle, rgba(99,102,241,.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift2 25s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  0% { transform: translate(0,0); }
+  100% { transform: translate(20vw,15vh); }
+}
+@keyframes drift2 {
+  0% { transform: translate(0,0); }
+  100% { transform: translate(-15vw,-10vh); }
+}
+
+html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -51,187 +86,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ========================================
-   Font utilities
-   ======================================== */
-.font-display { font-family: 'Space Grotesk', sans-serif; }
-.font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
-.font-sans { font-family: 'Inter', sans-serif; }
+/* Utility classes for the page */
+.font-display { font-family: 'Inter', sans-serif; letter-spacing: -0.02em; }
 
-/* ========================================
-   Card
-   ======================================== */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
-}
-
-/* ========================================
-   Buttons
-   ======================================== */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  padding: 0.5rem 1rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  border-radius: 8px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.15s ease;
-}
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.btn-primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-
-.btn-secondary {
-  background: transparent;
-  color: var(--text);
-  border-color: var(--border);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
-
-.btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-muted);
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-/* ========================================
-   Ticket Card (perforated edges)
-   ======================================== */
-.ticket {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.ticket-edge {
-  height: 14px;
-  background: radial-gradient(circle, var(--bg) 3px, transparent 3px);
-  background-size: 14px 14px;
-  background-position: 0 0;
-}
-
-/* ========================================
-   Stamp (cancellation mark)
-   ======================================== */
-.stamp {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 68px;
-  height: 68px;
-  border: 3px solid var(--accent);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  transform: rotate(-8deg);
-  opacity: 0.85;
-  pointer-events: none;
-}
-.stamp span {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1;
-}
-.stamp small {
-  font-size: 7px;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 2px;
-}
-.stamp-pulse {
-  animation: stamp-pulse 1s ease-in-out infinite;
-}
-
-/* ========================================
-   Stamp-in animation
-   ======================================== */
-@keyframes stamp-in {
-  0% { transform: scale(1.4) rotate(-8deg); opacity: 0; }
-  60% { transform: scale(0.95) rotate(-8deg); opacity: 1; }
-  100% { transform: scale(1) rotate(-8deg); opacity: 0.85; }
-}
-.stamp-animate {
-  animation: stamp-in 0.4s ease-out forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .stamp-animate { animation: none; opacity: 0.85; }
-  .stamp-pulse { animation: none; }
-}
-
-/* ========================================
-   Dashed divider
-   ======================================== */
-.divide-dashed > * + * {
-  border-top: 1px dashed var(--border);
-}
-
-/* ========================================
-   Input
-   ======================================== */
-.input {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.input::placeholder { color: var(--text-muted); }
-
-/* ========================================
-   Messages
-   ======================================== */
-.message-item {
-  transition: background-color 0.12s;
-  border-bottom: 1px solid var(--border);
-}
-.message-item:last-child { border-bottom: none; }
-.message-item:hover { background: var(--accent-soft); }
-
-/* ========================================
-   Scrollbar
-   ======================================== */
+/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* ========================================
-   Skeleton
-   ======================================== */
+/* Skeleton */
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-.skeleton { background: var(--border); animation: pulse 1.5s ease-in-out infinite; border-radius: 4px; }
+.skeleton { background: var(--border); border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
+
+/* Transitions */
+.fade-in { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
