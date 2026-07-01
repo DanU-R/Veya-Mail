@@ -1,20 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createAddress, login, getDomains, type Message } from "@/lib/api";
-import { generateRandomUsername } from "@/lib/utils";
+import { useState, useEffect, useCallback } from "react";
+import { createAddress, login, getDomains, type Message, listMessages } from "@/lib/api";
 
 const SAVED_PASSWORD = process.env.NEXT_PUBLIC_VEYA_PASSWORD || "Bandulan123@";
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [domains, setDomains] = useState<string[]>(["aivenue.web.id"]);
   const [selectedDomain, setSelectedDomain] = useState("aivenue.web.id");
   const [uname, setUname] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [selMsg, setSelMsg] = useState<Message | null>(null);
   const [msgBody, setMsgBody] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -22,32 +23,53 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [dark, setDark] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
 
-  // Init
+  // Init — guest mode on first visit
   useEffect(() => {
-    // Check saved theme
     const savedTheme = localStorage.getItem("veya_theme");
     if (savedTheme === "light" || savedTheme === "dark") {
       setDark(savedTheme === "dark");
       document.documentElement.classList.toggle("dark", savedTheme === "dark");
     }
 
-    const saved = localStorage.getItem("tempmail_token");
-    if (saved) {
-      setToken(saved);
-      initDomains(saved);
-      generate(saved);
+    // Cek apakah ada saved token dari login sebelumnya
+    const savedToken = localStorage.getItem("veya_token");
+    if (savedToken) {
+      // User pernah login — restore session
+      setToken(savedToken);
+      setIsLoggedIn(true);
+      initDomains(savedToken);
+      setFirstLoad(false);
     } else {
-      login(SAVED_PASSWORD).then(res => {
-        localStorage.setItem("tempmail_token", res.token);
-        setToken(res.token);
-        initDomains(res.token);
-        generate(res.token);
-      }).catch(() => setLoading(false));
+      // Guest — cek guest token
+      const savedGuest = localStorage.getItem("veya_guest");
+      if (savedGuest) {
+        setGuestToken(savedGuest);
+        setToken(savedGuest);
+        setFirstLoad(false);
+      } else {
+        // First visit ever — auto-login sebagai guest
+        login(SAVED_PASSWORD).then(res => {
+          const t = res.token;
+          localStorage.setItem("veya_guest", t);
+          setGuestToken(t);
+          setToken(t);
+          initDomains(t);
+          setFirstLoad(false);
+        }).catch(() => setFirstLoad(false));
+      }
     }
   }, []);
+
+  // Generate email setelah token siap
+  useEffect(() => {
+    if (token && firstLoad) {
+      doGenerate(token);
+      setFirstLoad(false);
+    }
+  }, [token, firstLoad]);
 
   const initDomains = async (t: string) => {
     try {
@@ -59,7 +81,8 @@ export default function Home() {
     } catch {}
   };
 
-  const generate = async (t: string, customName?: string) => {
+  const doGenerate = async (t: string, customName?: string) => {
+    if (!t) return;
     try {
       setLoading(true);
       setSelMsg(null);
@@ -71,31 +94,42 @@ export default function Home() {
       setUname(d.address.split("@")[0]);
       setMessages([]);
     } catch (e) {
-      localStorage.removeItem("tempmail_token");
+      // Token expired — reset
+      localStorage.removeItem("veya_token");
+      localStorage.removeItem("veya_guest");
       setToken(null);
+      setGuestToken(null);
+      setIsLoggedIn(false);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerate = () => {
-    if (!token) return;
+    const t = token || guestToken;
+    if (!t) {
+      // Auto-login dulu
+      login(SAVED_PASSWORD).then(res => {
+        localStorage.setItem("veya_guest", res.token);
+        setGuestToken(res.token);
+        setToken(res.token);
+        doGenerate(res.token, uname);
+      });
+      return;
+    }
     const name = uname.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-    generate(token, name || undefined);
+    doGenerate(t, name || undefined);
   };
 
   // Poll messages
   useEffect(() => {
     if (!token || !addressId) return;
-    
     const fetchMsgs = async () => {
       try {
-        const { listMessages } = await import("@/lib/api");
         const res = await listMessages(token, addressId);
         if (res.messages) setMessages(res.messages);
       } catch {}
     };
-    
     fetchMsgs();
     const interval = setInterval(fetchMsgs, 4000);
     return () => clearInterval(interval);
@@ -114,9 +148,7 @@ export default function Home() {
     }
   };
 
-  const copyAddr = () => {
-    navigator.clipboard.writeText(address);
-  };
+  const copyAddr = () => navigator.clipboard.writeText(address);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -131,12 +163,17 @@ export default function Home() {
     setLoginError("");
     try {
       const res = await login(password);
-      localStorage.setItem("tempmail_token", res.token);
-      setToken(res.token);
+      const newToken = res.token;
+      // Hapus guest, simpan login
+      localStorage.removeItem("veya_guest");
+      localStorage.setItem("veya_token", newToken);
+      setToken(newToken);
+      setGuestToken(null);
+      setIsLoggedIn(true);
       setShowLogin(false);
       setPassword("");
-      initDomains(res.token);
-      generate(res.token);
+      initDomains(newToken);
+      doGenerate(newToken);
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : "Wrong password");
     } finally {
@@ -145,16 +182,26 @@ export default function Home() {
   };
 
   const logout = () => {
-    localStorage.removeItem("tempmail_token");
-    setToken(null);
-    setAddressId(null);
-    setAddress("");
-    setMessages([]);
+    localStorage.removeItem("veya_token");
+    setIsLoggedIn(false);
+    // Kembali ke guest mode
+    const g = localStorage.getItem("veya_guest");
+    if (g) {
+      setGuestToken(g);
+      setToken(g);
+      doGenerate(g);
+    } else {
+      login(SAVED_PASSWORD).then(res => {
+        localStorage.setItem("veya_guest", res.token);
+        setGuestToken(res.token);
+        setToken(res.token);
+        doGenerate(res.token);
+      });
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
-      {/* Animated BG */}
       <div className="bg-grid" />
       <div className="bg-glow" />
       <div className="bg-glow-2" />
@@ -171,7 +218,7 @@ export default function Home() {
               style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
               {dark ? "☀" : "☾"}
             </button>
-            {token ? (
+            {isLoggedIn ? (
               <>
                 <button onClick={() => navigator.clipboard.writeText(address)}
                   className="text-xs px-3 py-1.5 rounded-md transition-all"
@@ -181,14 +228,14 @@ export default function Home() {
                 <button onClick={logout}
                   className="text-xs px-3 py-1.5 rounded-md transition-all"
                   style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                  ✕
+                  Logout
                 </button>
               </>
             ) : (
-              <button onClick={() => setShowLogin(!showLogin)}
+              <button onClick={() => setShowLogin(true)}
                 className="text-xs px-3 py-1.5 rounded-md transition-all"
                 style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                🔑
+                🔑 Login
               </button>
             )}
           </div>
@@ -203,7 +250,9 @@ export default function Home() {
             <h1 className="text-[clamp(24px,4vw,38px)] font-[700] tracking-wide mb-1.5" style={{ color: "var(--text)" }}>
               Veya.
             </h1>
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>Disposable email, instantly.</p>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {isLoggedIn ? "Your emails, saved." : "Disposable email, instantly."}
+            </p>
           </div>
 
           {/* Generate bar */}
@@ -232,13 +281,28 @@ export default function Home() {
               </select>
               <button
                 onClick={handleGenerate}
-                disabled={loading || !token}
+                disabled={loading}
                 className="text-xs font-semibold rounded-[7px] px-4 py-1.5 border-none cursor-pointer transition-all whitespace-nowrap"
-                style={{ background: "var(--accent)", color: dark ? "#0f1117" : "#fff" }}
+                style={{ background: "var(--accent)", color: dark ? "#0f1117" : "#fff", opacity: loading ? 0.5 : 1 }}
               >
                 {loading ? "…" : "Generate"}
               </button>
             </div>
+          </div>
+
+          {/* Status badge */}
+          <div className="text-[10px] mb-3 flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+            <span style={{
+              display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+              background: isLoggedIn ? "var(--success)" : "var(--text-muted)"
+            }} />
+            {isLoggedIn ? "Saved session" : "Guest — emails not saved across devices"}
+            {!isLoggedIn && (
+              <button onClick={() => setShowLogin(true)}
+                style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontSize: 10, padding: 0, textDecoration: "underline" }}>
+                Login to save
+              </button>
+            )}
           </div>
 
           {/* Address card */}
@@ -251,7 +315,7 @@ export default function Home() {
                 </span>
                 <span className="text-[9px] font-bold tracking-[0.5px] px-1.5 py-0.5 rounded-sm"
                   style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid transparent" }}>
-                  ACTIVE
+                  {isLoggedIn ? "SAVED" : "ACTIVE"}
                 </span>
               </div>
               <div className="flex gap-1.5 flex-wrap">
@@ -260,7 +324,7 @@ export default function Home() {
                   style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                   📋 Copy
                 </button>
-                <button onClick={() => navigator.clipboard.writeText(address)}
+                <button onClick={copyAddr}
                   className="flex items-center gap-1 text-[11px] font-medium rounded-md px-3 py-1.5 transition-all cursor-pointer"
                   style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                   ◈ QR
@@ -335,7 +399,7 @@ export default function Home() {
         <a href="#" style={{ color: "var(--accent)", textDecoration: "none" }}>GitHub</a>
       </footer>
 
-      {/* Modal overlay */}
+      {/* Message modal */}
       {showModal && selMsg && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-5"
           onClick={() => setShowModal(false)}
@@ -345,9 +409,7 @@ export default function Home() {
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <button onClick={() => setShowModal(false)}
               className="absolute top-2.5 right-3.5 bg-none border-none cursor-pointer text-base"
-              style={{ color: "var(--text-muted)" }}>
-              ✕
-            </button>
+              style={{ color: "var(--text-muted)" }}>✕</button>
             <h2 className="text-sm font-bold mb-1" style={{ color: "var(--text)" }}>{selMsg.subject}</h2>
             <div className="text-[11px] mb-3.5" style={{ color: "var(--text-muted)" }}>
               {selMsg.from_address} · {new Date(selMsg.received_at * 1000).toLocaleString()}
@@ -369,7 +431,9 @@ export default function Home() {
             onClick={e => e.stopPropagation()}
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <form onSubmit={doLogin} className="space-y-3">
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>Save your addresses across sessions</p>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                {isLoggedIn ? "Enter your password to continue" : "Login to save your emails across devices"}
+              </p>
               <input
                 type="password"
                 value={password}
@@ -380,19 +444,22 @@ export default function Home() {
                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }}
               />
               {loginError && <p className="text-xs" style={{ color: "#ef4444" }}>{loginError}</p>}
+              {!isLoggedIn && (
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                  Don't have one? Leave blank to continue as guest
+                </p>
+              )}
               <button type="submit" disabled={loginLoading || !password}
                 className="w-full text-xs font-semibold rounded-[8px] px-4 py-2.5 border-none cursor-pointer transition-all"
-                style={{ background: "var(--accent)", color: dark ? "#0f1117" : "#fff", opacity: loginLoading || !password ? 0.5 : 1 }}>
-                {loginLoading ? "…" : "Enter"}
+                style={{
+                  background: "var(--accent)", color: dark ? "#0f1117" : "#fff",
+                  opacity: loginLoading || !password ? 0.5 : 1
+                }}>
+                {loginLoading ? "…" : isLoggedIn ? "Continue" : "Save"}
               </button>
             </form>
           </div>
         </div>
-      )}
-
-      {/* QR modal */}
-      {false && (
-        <div>QR placeholder</div>
       )}
     </div>
   );
